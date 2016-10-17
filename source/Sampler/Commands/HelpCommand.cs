@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Octopus.Sampler.Extensions;
 using Octopus.Sampler.Infrastructure;
 
@@ -20,7 +21,7 @@ namespace Octopus.Sampler.Commands
         {
         }
 
-        public void Execute(string[] commandLineArguments)
+        public Task Execute(string[] commandLineArguments)
         {
             var executable = Path.GetFileNameWithoutExtension(typeof(HelpCommand).Assembly.FullLocalPath());
 
@@ -46,6 +47,7 @@ namespace Octopus.Sampler.Commands
                     PrintCommandHelp(executable, command, commandName);
                 }
             }
+            return Task.CompletedTask;
         }
 
         void PrintCommandHelp(string executable, ICommand command, string commandName)

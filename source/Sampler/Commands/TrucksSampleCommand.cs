@@ -1,12 +1,14 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using NLipsum.Core;
+using Octopus.Client;
 using Octopus.Client.Model.DeploymentProcess;
 using Octopus.Client.Model;
 using Octopus.Client.Model.Endpoints;
 using Octopus.Sampler.Extensions;
 using Octopus.Sampler.Infrastructure;
-using Octopus.Sampler.Integration;
 using Serilog;
 
 namespace Octopus.Sampler.Commands
@@ -19,8 +21,8 @@ namespace Octopus.Sampler.Commands
 
         private static readonly ILogger Log = Serilog.Log.ForContext<TrucksSampleCommand>();
 
-        public TrucksSampleCommand(IOctopusRepositoryFactory octopusRepositoryFactory)
-            : base(octopusRepositoryFactory)
+        public TrucksSampleCommand(IOctopusClientFactory octopusClientFactory)
+            : base(octopusClientFactory)
         {
             var options = Options.For("Trucks sample");
             options.Add("trucks=", $"[Optional] Number of trucks to create, default {DefaultNumberOfTrucks}", v => NumberOfTrucks = int.Parse(v));
@@ -28,71 +30,75 @@ namespace Octopus.Sampler.Commands
 
         public int NumberOfTrucks { get; protected set; } = DefaultNumberOfTrucks;
 
-        protected override void Execute()
+        protected override async Task Execute()
         {
             Log.Information("Building trucks sample with {TrucksCount} trucks...", NumberOfTrucks);
 
-            var environments = new[] { "Trucks Production" }.Select(name => Repository.Environments.CreateOrModify(name, LipsumRobinsonoKruso.GenerateLipsum(1)).Instance).ToArray();
-            var normalLifecycle = Repository.Lifecycles.CreateOrModify("Trucks Normal Lifecycle", "The normal lifecycle for the trucks sample").AsSimplePromotionLifecycle(environments.ToArray()).Save().Instance;
-            var projectGroup = Repository.ProjectGroups.CreateOrModify("Trucks sample").Instance;
+            var environment = await Repository.Environments.CreateOrModify("Trucks Production", LipsumRobinsonoKruso.GenerateLipsum(1));
+            var normalLifecycle = await Repository.Lifecycles.CreateOrModify("Trucks Normal Lifecycle", "The normal lifecycle for the trucks sample");
+            await normalLifecycle.AsSimplePromotionLifecycle(new[] { environment.Instance }).Save();
+            var projectGroup = await Repository.ProjectGroups.CreateOrModify("Trucks sample");
 
-            BuildServerProject(projectGroup, normalLifecycle);
+            await BuildServerProject(projectGroup.Instance, normalLifecycle.Instance);
 
-            BuildClientProject(projectGroup, normalLifecycle);
+            await BuildClientProject(projectGroup.Instance, normalLifecycle.Instance);
 
-            var env = environments.Where(e => e.Name.EndsWith("Production")).ToArray();
-            var trucks = Enumerable.Range(0, NumberOfTrucks)
-                .Select(i =>
-                {
-                    var truckName = $"Truck-{i:0000}";
-                    Log.Information("Setting up truck {TruckName}...", truckName);
-                    return Repository.Machines.CreateOrModify(truckName, new CloudRegionEndpointResource(), env, new[] {"truck"}).Instance;
-                })
-                .ToArray();
+            var trucks = await Task.WhenAll(
+                Enumerable.Range(0, NumberOfTrucks)
+                    .Select(i =>
+                    {
+                        var truckName = $"Truck-{i:0000}";
+                        Log.Information("Setting up truck {TruckName}...", truckName);
+                        return Repository.Machines.CreateOrModify(truckName, new CloudRegionEndpointResource(),
+                            new[] { environment.Instance }, new[] { "truck" });
+                    })
+                    .ToArray()
+            );
 
             Log.Information("Created {TruckCount} trucks.", trucks.Length);
 
-            StartTrucksMoving(trucks);
+            await StartTrucksMoving(trucks.Select(t => t.Instance).ToArray());
         }
 
-        private void BuildServerProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
+        private async Task BuildServerProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
         {
-            var serverProjectEditor = Repository.Projects.CreateOrModify("Truck Tracker Server", projectGroup, normalLifecycle)
-                .SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
+            var serverProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Server", projectGroup, normalLifecycle);
+                serverProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
 
-            serverProjectEditor.Variables.AddOrUpdateVariableValue("DatabaseConnectionString", $"Server=trackerdb.com;Database=trackerdb;");
-            serverProjectEditor.DeploymentProcess.AddOrUpdateStep("Deploy Application")
+            (await serverProjectEditor.Variables).AddOrUpdateVariableValue("DatabaseConnectionString", $"Server=trackerdb.com;Database=trackerdb;");
+            (await serverProjectEditor.DeploymentProcess).AddOrUpdateStep("Deploy Application")
                 .AddOrUpdateScriptAction("Deploy Application", new InlineScriptActionFromFileInAssembly("TrucksSample.Server.Deploy.fsx"), ScriptTarget.Server);
 
-            serverProjectEditor.Save();
+            await serverProjectEditor.Save();
         }
 
-        private void BuildClientProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
+        private async Task BuildClientProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
         {
-            var clientProjectEditor = Repository.Projects.CreateOrModify("Truck Tracker Client", projectGroup, normalLifecycle)
-                .SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
+            var clientProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Client", projectGroup, normalLifecycle);
+                clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
 
-            clientProjectEditor.Variables
-                .AddOrUpdateVariableValue("TrackerUrl", "https://trucktracker.com/trucks/#{Octopus.Machine.Name}");
+            var variables = await clientProjectEditor.Variables;
+            variables.AddOrUpdateVariableValue("TrackerUrl", "https://trucktracker.com/trucks/#{Octopus.Machine.Name}");
 
-            clientProjectEditor.Channels.CreateOrModify("1.x Normal", "The channel for stable releases that will be deployed to our production trucks.")
-                .SetAsDefaultChannel();
+            var channel = await clientProjectEditor.Channels.CreateOrModify("1.x Normal", "The channel for stable releases that will be deployed to our production trucks.");
+            channel.SetAsDefaultChannel();
 
-            clientProjectEditor.Channels.Delete("Default");
+            await clientProjectEditor.Channels.Delete("Default");
 
-            clientProjectEditor.DeploymentProcess.AddOrUpdateStep("Deploy Application")
+            var deploymentProcess = await clientProjectEditor.DeploymentProcess;
+            deploymentProcess.AddOrUpdateStep("Deploy Application")
                 .TargetingRoles("truck")
                 .AddOrUpdateScriptAction("Deploy Application", new InlineScriptActionFromFileInAssembly("TrucksSample.Client.Deploy.fsx"), ScriptTarget.Target);
 
-            clientProjectEditor.Triggers.CreateOrModify("Auto-Deploy to trucks when available",
+            await clientProjectEditor.Triggers.CreateOrModify("Auto-Deploy to trucks when available",
                 ProjectTriggerType.DeploymentTarget,
                 ProjectTriggerConditionEvent.ExistingDeploymentTargetChangesState,
                 ProjectTriggerConditionEvent.NewDeploymentTargetBecomesAvailable);
 
-            clientProjectEditor.Save();
+            await clientProjectEditor.Save();
         }
 
-        private void StartTrucksMoving(MachineResource[] trucks)
+        private async Task StartTrucksMoving(MachineResource[] trucks)
         {
             Log.Information("Starting to simulate trucks moving in and out of depot...");
 
@@ -104,8 +110,8 @@ namespace Octopus.Sampler.Commands
                 if (i >= 24) i = 0;
 
 
-                Log.Information("Time: {Time}", $"{i*100:0000}HRS");
-                var targets = Repository.Machines.FindByNames(trucks.Select(t => t.Name)).ToArray();
+                Log.Information("Time: {Time}", $"{i * 100:0000}HRS");
+                var targets = await Repository.Machines.FindByNames(trucks.Select(t => t.Name));
 
                 if (i == 4)
                 {
@@ -120,17 +126,17 @@ namespace Octopus.Sampler.Commands
                     Thread.Sleep(20000);
                 }
 
-                else if(i == 17)
+                else if (i == 17)
                 {
                     Log.Information("Day's finished... All trucks back!");
                     ReturnToDepot(targets);
                     Thread.Sleep(20000);
                 }
 
-                else if((i >= 5 && i <= 11) || (i >= 13 && i <= 16))
+                else if ((i >= 5 && i <= 11) || (i >= 13 && i <= 16))
                 {
-                    LeaveDepot(targets.Where(t => !t.IsDisabled).ToArray());
-                    ReturnToDepot(targets.SelectRandom());
+                    LeaveDepot(targets.Where(t => !t.IsDisabled).ToList());
+                    ReturnToDepot(new List<MachineResource>() { targets.SelectRandom() });
                     Thread.Sleep(10000);
                 }
 
@@ -138,7 +144,7 @@ namespace Octopus.Sampler.Commands
             }
         }
 
-        private void LeaveDepot(params MachineResource[] targets)
+        private void LeaveDepot(List<MachineResource> targets)
         {
             Log.Information("Leaving depot: {Leaving}", targets.Select(t => t.Name));
             foreach (var target in targets)
@@ -148,7 +154,7 @@ namespace Octopus.Sampler.Commands
             }
         }
 
-        private void ReturnToDepot(params MachineResource[] targets)
+        private void ReturnToDepot(List<MachineResource> targets)
         {
             Log.Information("Returning to depot: {Returning}", targets.Select(t => t.Name));
             foreach (var target in targets)

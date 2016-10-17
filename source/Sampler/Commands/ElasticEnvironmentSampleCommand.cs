@@ -1,8 +1,9 @@
 ﻿using System.Linq;
+using System.Threading.Tasks;
+using Octopus.Client;
 using Octopus.Client.Model;
 using Octopus.Client.Model.DeploymentProcess;
 using Octopus.Sampler.Infrastructure;
-using Octopus.Sampler.Integration;
 using Serilog;
 
 namespace Octopus.Sampler.Commands
@@ -15,8 +16,8 @@ namespace Octopus.Sampler.Commands
 
         private static readonly ILogger Log = Serilog.Log.ForContext<ElasticEnvironmentSampleCommand>();
 
-        public ElasticEnvironmentSampleCommand(IOctopusRepositoryFactory octopusRepositoryFactory)
-            : base(octopusRepositoryFactory)
+        public ElasticEnvironmentSampleCommand(IOctopusClientFactory octopusClientFactory)
+            : base(octopusClientFactory)
         {
             var options = Options.For("elastic sample");
             options.Add("projects=", $"[Optional] Number of projects to create, default {DefaultNumberOfProjects}", v => NumberOfProjects = int.Parse(v));
@@ -26,38 +27,51 @@ namespace Octopus.Sampler.Commands
         public int NumberOfProjects { get; protected set; } = DefaultNumberOfProjects;
         public int NumberOfEnvironments { get; protected set; } = DefaultNumberOfEnvironments;
 
-        protected override void Execute()
+        protected override async Task Execute()
         {
             Log.Information($"Building elastic environment test data with {NumberOfProjects} projects, {NumberOfEnvironments} environments");
-            
-            var environments = Enumerable.Range(0, NumberOfEnvironments).Select(i =>
-            {
-                var environmentName = $"Environment-{i}";
-                Log.Information("Creating {EnvironmentName}...", environmentName);
-                return Repository.Environments.CreateOrModify(environmentName).Instance;
-            }).ToArray();
-            var lifecycle = Repository.Lifecycles.CreateOrModify("The Lifecycle").AsSimplePromotionLifecycle(environments).Save();
-            var projectGroup = Repository.ProjectGroups.CreateOrModify("The project group");
+
+            var environments =
+                await Task.WhenAll(
+                    Enumerable.Range(0, NumberOfEnvironments)
+                        .Select(i =>
+                        {
+                            var environmentName = $"Environment-{i}";
+                            Log.Information("Creating {EnvironmentName}...", environmentName);
+                            return Repository.Environments.CreateOrModify(environmentName);
+                        })
+                        .ToArray()
+                );
+            var lifecycle = await Repository.Lifecycles.CreateOrModify("The Lifecycle");
+            await lifecycle.AsSimplePromotionLifecycle(environments.Select(e => e.Instance)).Save();
+
+            var projectGroup = await Repository.ProjectGroups.CreateOrModify("The project group");
 
             Log.Information("Building {Count} sample projects...", NumberOfProjects);
             var projects = Enumerable.Range(0, NumberOfProjects)
-                .Select(i =>
+                .Select(async i =>
                 {
                     var projectName = $"Project-{i}";
                     Log.Information("Creating {ProjectName}...", projectName);
-                    var projectEditor = Repository.Projects.CreateOrModify(projectName, projectGroup.Instance, lifecycle.Instance);
-                    projectEditor.DeploymentProcess.AddOrUpdateStep("Deploy Application")
-                        .AddOrUpdateScriptAction("Deploy Application", new InlineScriptActionFromFileInAssembly("ElasticEnvironmentSample.Deploy.ps1"), ScriptTarget.Server);
+                    var projectEditor =
+                        await Repository.Projects.CreateOrModify(projectName, projectGroup.Instance, lifecycle.Instance);
+                    var deploymentProcess = await projectEditor.DeploymentProcess;
+                    deploymentProcess
+                        .AddOrUpdateStep("Deploy Application")
+                        .AddOrUpdateScriptAction("Deploy Application",
+                            new InlineScriptActionFromFileInAssembly("ElasticEnvironmentSample.Deploy.ps1"),
+                            ScriptTarget.Server);
 
-                    projectEditor.Triggers.CreateOrModify("MyTrigger", ProjectTriggerType.DeploymentTarget,
+                    await projectEditor.Triggers.CreateOrModify("MyTrigger", ProjectTriggerType.DeploymentTarget,
                         ProjectTriggerConditionEvent.NewDeploymentTargetBecomesAvailable,
                         ProjectTriggerConditionEvent.ExistingDeploymentTargetChangesState);
-                    
-                    projectEditor.Save();
+
+                    await projectEditor.Save();
 
                     return projectEditor;
-                })
-            .ToArray();
+                });
+
+            await Task.WhenAll(projects.ToArray());
         }
     }
 }

@@ -5,10 +5,10 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using Autofac;
+using Octopus.Client;
 using Octopus.Client.Exceptions;
 using Octopus.Sampler.Extensions;
 using Octopus.Sampler.Infrastructure;
-using Octopus.Sampler.Integration;
 using Serilog;
 
 namespace Octopus.Sampler
@@ -41,7 +41,7 @@ namespace Octopus.Sampler
                 var command = GetCommand(first, commandLocator);
                 using (log.BeginTimedOperation(command.GetType().Name))
                 {
-                    command.Execute(args.Skip(1).ToArray());
+                    command.Execute(args.Skip(1).ToArray()).GetAwaiter().GetResult();
                 }
 
                 return 0;
@@ -61,7 +61,7 @@ namespace Octopus.Sampler
 
             builder.RegisterAssemblyTypes(thisAssembly).As<ICommand>().AsSelf();
             builder.RegisterType<CommandLocator>().As<ICommandLocator>();
-            builder.RegisterType<OctopusRepositoryFactory>().As<IOctopusRepositoryFactory>();
+            builder.RegisterType<OctopusClientFactory>().As<IOctopusClientFactory>();
 
             return builder.Build();
         }

@@ -10,10 +10,10 @@
     "Serilog.Extras.Timing": "2.0.2",
     "Serilog.Sinks.Literate": "1.2.0",
     "SerilogMetrics": "1.0.34",
-    "Octopus.Client": "4.0.0-alpha0338"
+    "Octopus.Client": "4.0.0-alpha0339"
   },
   "frameworks": {
-    "net45": {
+    "net461": {
       "frameworkAssemblies": {
         "System.Runtime": "*",
         "System.Core": "*",

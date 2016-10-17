@@ -4,10 +4,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using Octopus.Client;
 using Octopus.Client.Model;
 using Octopus.Sampler.Infrastructure;
-using Octopus.Sampler.Integration;
 using Serilog;
 
 namespace Octopus.Sampler.Commands
@@ -15,18 +15,17 @@ namespace Octopus.Sampler.Commands
     public abstract class ApiCommand : ICommand
     {
         readonly ILogger log = Log.ForContext<ApiCommand>();
-        readonly IOctopusRepositoryFactory repositoryFactory;
+        readonly IOctopusClientFactory octopusClientFactory;
         string apiKey;
         bool ignoreSslErrors;
         string password;
-        IOctopusRepository repository;
         string serverBaseUrl;
         string username;
         readonly Options optionGroups = new Options();
 
-        protected ApiCommand(IOctopusRepositoryFactory repositoryFactory)
+        protected ApiCommand(IOctopusClientFactory octopusClientFactory)
         {
-            this.repositoryFactory = repositoryFactory;
+            this.octopusClientFactory = octopusClientFactory;
 
             var options = optionGroups.For("Common options");
             options.Add("server=", "The base URL for your Octopus server - e.g., http://your-octopus/", v => serverBaseUrl = v);
@@ -38,16 +37,14 @@ namespace Octopus.Sampler.Commands
 
         protected Options Options => optionGroups;
 
-        protected string ServerBaseUrl => serverBaseUrl;
-
-        protected IOctopusRepository Repository => repository;
+        protected IOctopusAsyncRepository Repository { get; private set; }
 
         public void GetHelp(TextWriter writer)
         {
             optionGroups.WriteOptionDescriptions(writer);
         }
 
-        public void Execute(string[] commandLineArguments)
+        public async Task Execute(string[] commandLineArguments)
         {
             var remainingArguments = optionGroups.Parse(commandLineArguments);
             if (remainingArguments.Count > 0)
@@ -62,36 +59,38 @@ namespace Octopus.Sampler.Commands
             var credentials = ParseCredentials(username, password);
 
             var endpoint = new OctopusServerEndpoint(serverBaseUrl, apiKey, credentials);
+            using (var client = await octopusClientFactory.CreateAsyncClient(endpoint))
+            {
+                Repository = client.Repository;
+                client.SendingOctopusRequest +=
+                    request => log.Debug("{Method} {Uri}", request.Method, request.Uri);
 
-            repository = repositoryFactory.CreateRepository(endpoint);
+                ConfigureServerCertificateValidation();
 
-            repository.Client.SendingOctopusRequest += request => log.Debug("{Method} {Uri}", request.Method, request.Uri);
+                await InitializeConnection();
 
-            ConfigureServerCertificateValidation();
-
-            InitializeConnection();
-
-            Execute();
+                await Execute();
+            }
         }
 
-        private void InitializeConnection()
+        private async Task InitializeConnection()
         {
             log.Information("Handshaking with Octopus server {ServerBaseUrl}", serverBaseUrl);
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 log.Information("Signing in using basic authentication as {Username}", username);
-                repository.Users.SignIn(new LoginCommand
+                await Repository.Users.SignIn(new LoginCommand
                 {
                     Username = username,
                     Password = password
                 });
             }
 
-            var root = repository.Client.RootDocument;
+            var root = Repository.Client.RootDocument;
             log.Information("Handshake successful. Octopus version: {ServerVersion}; API version: {APIVersion}", root.Version, root.ApiVersion);
 
-            var user = repository.Users.GetCurrent();
+            var user = await Repository.Users.GetCurrent();
             if (user != null)
             {
                 log.Information("Authenticated as: {Name} <{Email}> {Type}", user.DisplayName, user.EmailAddress, user.IsService ? "(a service account)" : "(a user account)");
@@ -107,10 +106,10 @@ namespace Octopus.Sampler.Commands
                     return true;
                 }
 
-                var certificate2 = (X509Certificate2) certificate;
+                var certificate2 = (X509Certificate2)certificate;
                 var warning = "The following certificate errors were encountered when establishing the HTTPS connection to the server: " + errors + Environment.NewLine +
                     "Certificate subject name: " + certificate2.SubjectName.Name + Environment.NewLine +
-                    "Certificate thumbprint:   " + ((X509Certificate2) certificate).Thumbprint;
+                    "Certificate thumbprint:   " + ((X509Certificate2)certificate).Thumbprint;
 
                 if (ignoreSslErrors)
                 {
@@ -124,7 +123,7 @@ namespace Octopus.Sampler.Commands
             };
         }
 
-        protected abstract void Execute();
+        protected abstract Task Execute();
 
         static NetworkCredential ParseCredentials(string username, string password)
         {
