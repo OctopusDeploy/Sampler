@@ -1,0 +1,45 @@
+{
+  "version": "0.0.0-*",
+  "dependencies": {
+    "Autofac": "3.5.2",
+    "Humanizer": "1.37.7",
+    "Newtonsoft.Json": "9.0.1",
+    "NLipsum": "1.0.1",
+    "Polly": "4.2.1",
+    "Serilog": "1.5.14",
+    "Serilog.Extras.Timing": "2.0.2",
+    "Serilog.Sinks.Literate": "1.2.0",
+    "SerilogMetrics": "1.0.34",
+    "Octopus.Client": "4.0.0-alpha0338"
+  },
+  "frameworks": {
+    "net45": {
+      "frameworkAssemblies": {
+        "System.Runtime": "*",
+        "System.Core": "*",
+        "System.Xml.Linq": "*",
+        "System.Data.DataSetExtensions": "*",
+        "Microsoft.CSharp": "*",
+        "System.Data": "*",
+        "System.Net.Http": "*",
+        "System.Xml": "*"
+      }
+    }
+  },
+  "buildOptions": {
+    "emitEntryPoint": true,
+    "embed": {
+      "include": [
+        "Commands\\MultiTenantSample.Deploy.ps1",
+        "Commands\\MultiTenantSample.NotifyContact.ps1",
+        "Commands\\ElasticEnvironmentSample.Deploy.ps1",
+        "Commands\\MultiTenantSample.DeployBetaComponent.ps1",
+        "Commands\\TrucksSample.Client.Deploy.fsx",
+        "Commands\\TrucksSample.Server.Deploy.fsx"
+      ]
+    }
+  },
+  "runtimes": {
+
+  }
+}
