@@ -19,9 +19,7 @@ namespace Octopus.Sampler.Commands
         string apiKey;
         bool ignoreSslErrors;
         string password;
-#pragma warning disable 618
         IOctopusRepository repository;
-#pragma warning restore 618
         string serverBaseUrl;
         string username;
         readonly Options optionGroups = new Options();
@@ -42,9 +40,7 @@ namespace Octopus.Sampler.Commands
 
         protected string ServerBaseUrl => serverBaseUrl;
 
-#pragma warning disable 618
         protected IOctopusRepository Repository => repository;
-#pragma warning restore 618
 
         public void GetHelp(TextWriter writer)
         {

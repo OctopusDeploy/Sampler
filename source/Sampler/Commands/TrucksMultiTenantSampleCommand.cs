@@ -238,9 +238,7 @@ namespace Octopus.Sampler.Commands
             }
         }
 
-#pragma warning disable 618
         void EnsureMultitenancyFeature(IOctopusRepository repo)
-#pragma warning restore 618
         {
             Log.Information("Ensuring multi-tenant deployments are enabled...");
             var features = repo.FeaturesConfiguration.GetFeaturesConfiguration();
