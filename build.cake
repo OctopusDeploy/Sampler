@@ -76,8 +76,7 @@ Task("__UpdateAssemblyVersionInformation")
     .Does(() =>
 {
      GitVersion(new GitVersionSettings {
-        UpdateAssemblyInfo = true,
-        UpdateAssemblyInfoFilePath = "./source/**/AssemblyInfo.cs"
+        UpdateAssemblyInfo = true
     });
 
     Information("AssemblyVersion -> {0}", gitVersionInfo.AssemblySemVer);
