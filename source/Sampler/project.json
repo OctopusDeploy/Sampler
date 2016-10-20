@@ -28,6 +28,7 @@
   },
   "buildOptions": {
     "emitEntryPoint": true,
+    "warningsAsErrors": true,
     "embed": {
       "include": [
         "Commands\\MultiTenantSample.Deploy.ps1",

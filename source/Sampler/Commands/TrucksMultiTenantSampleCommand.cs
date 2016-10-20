@@ -119,7 +119,7 @@ namespace Octopus.Sampler.Commands
                         await tenantEditor.Save();
 
                         // Ensure the tenant is saved before we attempt to fill out variables - otherwise we don't know what projects they are connected to
-                        FillOutTenantVariablesByConvention(tenantEditor, proj, env, libraryVariableSets);
+                        await FillOutTenantVariablesByConvention(tenantEditor, proj, env, libraryVariableSets);
 
                         await tenantEditor.Save();
                         return tenantEditor.Instance;
