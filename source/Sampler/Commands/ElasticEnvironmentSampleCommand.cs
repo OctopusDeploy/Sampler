@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Octopus.Client;
 using Octopus.Client.Model;
 using Octopus.Client.Model.DeploymentProcess;
+using Octopus.Client.Model.Triggers;
 using Octopus.Sampler.Infrastructure;
 using Serilog;
 

@@ -207,7 +207,7 @@ namespace Octopus.Sampler.Commands
 
                         var image = SampleImageCache.GetRobotImage(x.Name);
                         if (!string.IsNullOrWhiteSpace(image))
-                            projectEditor.SetLogo(image);
+                            await projectEditor.SetLogo(image);
 
                         projectEditor.VariableTemplates
                             .Clear()
@@ -265,7 +265,8 @@ namespace Octopus.Sampler.Commands
                     {
                         Log.Information("Setting up tester {TenantName}...", x.Name);
                         var tenantEditor = await Repository.Tenants.CreateOrModify(x.Name);
-                        tenantEditor.SetLogo(SampleImageCache.DownloadImage(x.LogoUrl))
+                        await tenantEditor.SetLogo(SampleImageCache.DownloadImage(x.LogoUrl));
+                        tenantEditor
                             .WithTag(getTag("Internal"))
                             .WithTag(getTag("Tester"))
                             .WithTag(getTag("Internal-Shared-Farm"))
@@ -296,7 +297,7 @@ namespace Octopus.Sampler.Commands
                     {
                         Log.Information("Setting up customer {TenantName}...", x.Name);
                         var tenantEditor = await Repository.Tenants.CreateOrModify(x.Name);
-                        tenantEditor.SetLogo(SampleImageCache.DownloadImage(x.LogoUrl));
+                        await tenantEditor.SetLogo(SampleImageCache.DownloadImage(x.LogoUrl));
                         TagCustomerByConvention(tenantEditor.Instance, allTags);
 
                         // Connect to projects/environments

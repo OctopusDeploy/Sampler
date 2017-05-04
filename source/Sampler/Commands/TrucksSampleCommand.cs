@@ -7,6 +7,7 @@ using Octopus.Client;
 using Octopus.Client.Model.DeploymentProcess;
 using Octopus.Client.Model;
 using Octopus.Client.Model.Endpoints;
+using Octopus.Client.Model.Triggers;
 using Octopus.Sampler.Extensions;
 using Octopus.Sampler.Infrastructure;
 using Serilog;
@@ -63,7 +64,7 @@ namespace Octopus.Sampler.Commands
         private async Task BuildServerProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
         {
             var serverProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Server", projectGroup, normalLifecycle);
-                serverProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
+            await serverProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
 
             (await serverProjectEditor.Variables).AddOrUpdateVariableValue("DatabaseConnectionString", $"Server=trackerdb.com;Database=trackerdb;");
             (await serverProjectEditor.DeploymentProcess).AddOrUpdateStep("Deploy Application")
@@ -75,7 +76,7 @@ namespace Octopus.Sampler.Commands
         private async Task BuildClientProject(ProjectGroupResource projectGroup, LifecycleResource normalLifecycle)
         {
             var clientProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Client", projectGroup, normalLifecycle);
-                clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
+            await clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
 
             var variables = await clientProjectEditor.Variables;
             variables.AddOrUpdateVariableValue("TrackerUrl", "https://trucktracker.com/trucks/#{Octopus.Machine.Name}");

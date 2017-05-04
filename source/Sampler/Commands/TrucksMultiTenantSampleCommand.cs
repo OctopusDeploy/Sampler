@@ -9,6 +9,7 @@ using Octopus.Client.Editors.Async;
 using Octopus.Client.Model.DeploymentProcess;
 using Octopus.Client.Model;
 using Octopus.Client.Model.Endpoints;
+using Octopus.Client.Model.Triggers;
 using Octopus.Sampler.Extensions;
 using Octopus.Sampler.Infrastructure;
 using Serilog;
@@ -108,8 +109,8 @@ namespace Octopus.Sampler.Commands
                     {
                         Log.Information("Setting up tenant for truck {TruckName}...", x.Name);
                         var tenantEditor = await Repository.Tenants.CreateOrModify(x.Name);
-                        tenantEditor.SetLogo(SampleImageCache.DownloadImage(logos[x.TruckType.Name]))
-                            .ClearTags().WithTag(x.TruckType).WithTag(x.UpgradeRing);
+                        await tenantEditor.SetLogo(SampleImageCache.DownloadImage(logos[x.TruckType.Name]));
+                        tenantEditor.ClearTags().WithTag(x.TruckType).WithTag(x.UpgradeRing);
 
                         tenantEditor.ClearProjects();
                         foreach (var project in proj)
@@ -141,7 +142,7 @@ namespace Octopus.Sampler.Commands
         {
             Log.Information("Setting up server project...");
             var serverProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Server", projectGroup, normalLifecycle);
-            serverProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
+            await serverProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://blog.budgettrucks.com.au/wp-content/uploads/2015/08/tweed-heads-moving-truck-rental-map.jpg"));
 
             (await serverProjectEditor.Variables).AddOrUpdateVariableValue("DatabaseConnectionString", $"Server=trackerdb.com;Database=trackerdb;");
             (await serverProjectEditor.DeploymentProcess).AddOrUpdateStep("Deploy Application")
@@ -154,8 +155,8 @@ namespace Octopus.Sampler.Commands
         {
             Log.Information("Setting up client project...");
             var clientProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Client", projectGroup, normalLifecycle);
-            clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"))
-                .IncludingLibraryVariableSets(libraryVariableSets)
+            await clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
+            clientProjectEditor.IncludingLibraryVariableSets(libraryVariableSets)
                 .Customize(p => p.TenantedDeploymentMode = ProjectTenantedDeploymentMode.Tenanted);
 
             var channel = await clientProjectEditor.Channels.CreateOrModify("1.x Normal", "The channel for stable releases that will be deployed to our production trucks.");

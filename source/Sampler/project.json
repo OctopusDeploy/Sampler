@@ -10,7 +10,7 @@
     "Serilog.Extras.Timing": "2.0.2",
     "Serilog.Sinks.Literate": "1.2.0",
     "SerilogMetrics": "1.0.34",
-    "Octopus.Client": "4.0.0-alpha0339"
+    "Octopus.Client": "4.15.0"
   },
   "frameworks": {
     "net461": {
