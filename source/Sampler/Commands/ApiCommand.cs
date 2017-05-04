@@ -51,6 +51,21 @@ namespace Octopus.Sampler.Commands
                 throw new CommandException("Unrecognized command arguments: " + string.Join(", ", remainingArguments));
 
             if (string.IsNullOrWhiteSpace(serverBaseUrl))
+            {
+                serverBaseUrl = "http://localhost:8065";
+                log.Information($"No Octopus Server URL was provided. Using default development value: {serverBaseUrl}");
+            }
+
+            if (string.IsNullOrWhiteSpace(apiKey) &&
+                string.IsNullOrWhiteSpace(username) &&
+                string.IsNullOrWhiteSpace(password))
+            {
+                username = "admin";
+                password = "Password01!";
+                log.Information("No credentials were provided. Using default development credentials.");
+            }
+
+            if (string.IsNullOrWhiteSpace(serverBaseUrl))
                 throw new CommandException("Please specify the Octopus Server URL using --server=http://your-server/");
 
             if (string.IsNullOrWhiteSpace(apiKey) && (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)))
