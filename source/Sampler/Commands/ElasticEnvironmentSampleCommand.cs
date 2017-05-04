@@ -62,9 +62,9 @@ namespace Octopus.Sampler.Commands
                             new InlineScriptActionFromFileInAssembly("ElasticEnvironmentSample.Deploy.ps1"),
                             ScriptTarget.Server);
 
-                    await projectEditor.Triggers.CreateOrModify("MyTrigger", ProjectTriggerType.DeploymentTarget,
-                        ProjectTriggerConditionEvent.NewDeploymentTargetBecomesAvailable,
-                        ProjectTriggerConditionEvent.ExistingDeploymentTargetChangesState);
+                    await projectEditor.Triggers.CreateOrModify("MyTrigger",
+                        new MachineFilterResource(),
+                        new AutoDeployActionResource());
 
                     await projectEditor.Save();
 

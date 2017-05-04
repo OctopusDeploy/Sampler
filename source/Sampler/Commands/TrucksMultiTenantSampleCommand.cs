@@ -169,10 +169,11 @@ namespace Octopus.Sampler.Commands
                 .TargetingRoles("truck")
                 .AddOrUpdateScriptAction("Deploy Application", new InlineScriptActionFromFileInAssembly("TrucksSample.Client.Deploy.fsx"), ScriptTarget.Target);
 
+            var machineFilter = new MachineFilterResource();
+            machineFilter.EventGroups.Add("MachineAvailableForDeployment");
             await clientProjectEditor.Triggers.CreateOrModify("Auto-Deploy to trucks when available",
-                ProjectTriggerType.DeploymentTarget,
-                ProjectTriggerConditionEvent.ExistingDeploymentTargetChangesState,
-                ProjectTriggerConditionEvent.NewDeploymentTargetBecomesAvailable);
+                machineFilter,
+                new AutoDeployActionResource());
 
             await clientProjectEditor.Save();
 
