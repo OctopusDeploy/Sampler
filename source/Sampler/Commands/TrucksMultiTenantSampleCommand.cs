@@ -130,7 +130,7 @@ namespace Octopus.Sampler.Commands
             foreach (var truck in trucks)
             {
                 Log.Information("Setting up hosting for {TruckName}...", truck.Name);
-                var dedicatedHost = Repository.Machines.CreateOrModify(truck.Name, new CloudRegionEndpointResource(), env, new[] { "truck" }, new[] { truck }, new TagResource[0]);
+                var dedicatedHost = Repository.Machines.CreateOrModify(truck.Name, new CloudRegionEndpointResource(), env, new[] { "truck" }, new[] { truck }, new TagResource[0], TenantedDeploymentMode.Tenanted);
             }
 
             Log.Information("Created {TruckCount} trucks.", trucks.Length);
@@ -157,7 +157,7 @@ namespace Octopus.Sampler.Commands
             var clientProjectEditor = await Repository.Projects.CreateOrModify("Truck Tracker Client", projectGroup, normalLifecycle);
             await clientProjectEditor.SetLogo(SampleImageCache.DownloadImage("http://b2bimg.bridgat.com/files/GPS_Camera_TrackerGPS_Camera_Tracking.jpg", "GPS_Camera_TrackerGPS_Camera_Tracking.jpg"));
             clientProjectEditor.IncludingLibraryVariableSets(libraryVariableSets)
-                .Customize(p => p.TenantedDeploymentMode = ProjectTenantedDeploymentMode.Tenanted);
+                .Customize(p => p.TenantedDeploymentMode = TenantedDeploymentMode.Tenanted);
 
             var channel = await clientProjectEditor.Channels.CreateOrModify("1.x Normal", "The channel for stable releases that will be deployed to our production trucks.");
             channel.SetAsDefaultChannel()

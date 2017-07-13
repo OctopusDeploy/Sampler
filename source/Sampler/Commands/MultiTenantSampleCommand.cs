@@ -158,7 +158,8 @@ namespace Octopus.Sampler.Commands
                     allEnvironments.Where(e => e.Name == "MT Test").ToArray(),
                     new[] { "web-server" },
                     new TenantResource[0],
-                    new[] { internalSharedHostTag }))
+                    new[] { internalSharedHostTag },
+                    TenantedDeploymentMode.Tenanted))
                     .ToArray();
             }
 
@@ -173,7 +174,8 @@ namespace Octopus.Sampler.Commands
                             allEnvironments.Where(e => e.Name == "MT Production").ToArray(),
                             new[] { "web-server" },
                             new TenantResource[0],
-                            new[] { sharedHostTag }))
+                            new[] { sharedHostTag },
+                            TenantedDeploymentMode.Tenanted))
                         .ToArray()
                 );
             }
@@ -249,7 +251,7 @@ namespace Octopus.Sampler.Commands
                             .AddOrUpdateScriptAction("Notify VIP Contact", new InlineScriptActionFromFileInAssembly("MultiTenantSample.NotifyContact.ps1"), ScriptTarget.Server)
                             .ForTenantTags(getTag("VIP"));
 
-                        projectEditor.Instance.TenantedDeploymentMode = ProjectTenantedDeploymentMode.TenantedOrUntenanted;
+                        projectEditor.Instance.TenantedDeploymentMode = TenantedDeploymentMode.Tenanted;
 
                         await projectEditor.Save();
 
@@ -327,7 +329,8 @@ namespace Octopus.Sampler.Commands
                             GetEnvironmentsForCustomer(allEnvironments, customer),
                             new[] {"web-server"},
                             new[] {customer},
-                            new TagResource[0]))
+                            new TagResource[0],
+                            TenantedDeploymentMode.Tenanted))
                         .ToArray()
                 );
             }
