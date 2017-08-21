@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Commands\SimpleProjectSample.Deploy.ps1" />
     <EmbeddedResource Include="Commands\MultiTenantSample.Deploy.ps1;Commands\MultiTenantSample.NotifyContact.ps1;Commands\ElasticEnvironmentSample.Deploy.ps1;Commands\MultiTenantSample.DeployBetaComponent.ps1;Commands\TrucksSample.Client.Deploy.fsx;Commands\TrucksSample.Server.Deploy.fsx" Exclude="bin\**;obj\**;**\*.xproj;packages\**;@(EmbeddedResource)" />
   </ItemGroup>
 
