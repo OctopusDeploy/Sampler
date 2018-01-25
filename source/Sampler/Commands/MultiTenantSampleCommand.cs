@@ -89,14 +89,27 @@ namespace Octopus.Sampler.Commands
             await EnsureMultitenancyFeature();
 
             Log.Information("Setting up environments...");
-            var allEnvironmentsTasks = new[] {"MT Dev", "MT Test", "MT Beta", "MT Staging", "MT Production"}
+            var environmentNames = new[] {"MT Dev", "MT Test", "MT Beta", "MT Staging", "MT Production"};
+            var allEnvironmentsTasks = environmentNames
                 .Select(name => Repository.Environments.CreateOrModify(name, LipsumRobinsonoKruso.GenerateLipsum(1)))
                 .ToArray();
-            var allEnvironments = (await Task.WhenAll(allEnvironmentsTasks)).Select(e => e.Instance).ToArray();
+            var sampleEnvironments = (await Task.WhenAll(allEnvironmentsTasks)).Select(e => e.Instance).ToArray();
+
+            var allEnvironments = await Repository.Environments.GetAll();
+            await Repository.Environments.Sort(
+                allEnvironments.Where(e => !environmentNames.Contains(e.Name)).Select(e => e.Id).Concat(new []
+            {
+                allEnvironments.Single(e => e.Name == "MT Dev").Id,
+                allEnvironments.Single(e => e.Name == "MT Test").Id,
+                allEnvironments.Single(e => e.Name == "MT Beta").Id,
+                allEnvironments.Single(e => e.Name == "MT Staging").Id,
+                allEnvironments.Single(e => e.Name == "MT Production").Id,
+            }).ToArray());
+
             var normalLifecycle = await Repository.Lifecycles.CreateOrModify("MT Normal Lifecycle", "The normal lifecycle for the multi-tenant deployments sample");
-            await normalLifecycle.AsSimplePromotionLifecycle(allEnvironments.Where(e => e.Name != "MT Beta").ToArray()).Save();
+            await normalLifecycle.AsSimplePromotionLifecycle(sampleEnvironments.Where(e => e.Name != "MT Beta").ToArray()).Save();
             var betaLifecycle = await Repository.Lifecycles.CreateOrModify("MT Beta Lifecycle", "The beta lifecycle for the multi-tenant deployments sample");
-            await betaLifecycle.AsSimplePromotionLifecycle(allEnvironments.Take(3).ToArray()).Save();
+            await betaLifecycle.AsSimplePromotionLifecycle(sampleEnvironments.Take(3).ToArray()).Save();
             var projectGroup = await Repository.ProjectGroups.CreateOrModify("Multi-tenancy sample");
 
             Log.Information("Setting up tags...");
@@ -141,12 +154,15 @@ namespace Octopus.Sampler.Commands
 
             var getTag = new Func<string, TagResource>(name => allTags.FirstOrDefault(t => t.Name == name));
 
-            Log.Information("Setting up the untenanted host for the development...");
+            Log.Information("Setting up the host for the development environment...");
             var untenantedHosts = Enumerable.Range(0, 1).Select(i => Repository.Machines.CreateOrModify(
                 $"Untenanted Node {i}",
                 new CloudRegionEndpointResource(),
-                allEnvironments.Where(e => e.Name == "MT Dev").ToArray(),
-                new[] { "web-server" }))
+                sampleEnvironments.Where(e => e.Name == "MT Dev").ToArray(),
+                new[] { "web-server" },
+                new TenantResource[0],
+                tagSetHosting.Instance.Tags.Where(t => t.Name.StartsWith("Internal-Shared")).ToArray(),
+                TenantedDeploymentMode.Untenanted))
                 .ToArray();
 
             Log.Information("Setting up the shared hosts for the test environment...");
@@ -155,7 +171,7 @@ namespace Octopus.Sampler.Commands
                 var sharedHosts = Enumerable.Range(0, 4).Select(i => Repository.Machines.CreateOrModify(
                     $"{internalSharedHostTag.Name} Node {i}",
                     new CloudRegionEndpointResource(),
-                    allEnvironments.Where(e => e.Name == "MT Test").ToArray(),
+                    sampleEnvironments.Where(e => e.Name == "MT Test").ToArray(),
                     new[] { "web-server" },
                     new TenantResource[0],
                     new[] { internalSharedHostTag },
@@ -171,7 +187,7 @@ namespace Octopus.Sampler.Commands
                         .Select(i => Repository.Machines.CreateOrModify(
                             $"{sharedHostTag.Name} Node {i}",
                             new CloudRegionEndpointResource(),
-                            allEnvironments.Where(e => e.Name == "MT Production").ToArray(),
+                            sampleEnvironments.Where(e => e.Name == "MT Production").ToArray(),
                             new[] { "web-server" },
                             new TenantResource[0],
                             new[] { sharedHostTag },
@@ -182,7 +198,7 @@ namespace Octopus.Sampler.Commands
 
             Log.Information("Setting up variables...");
             var envVarEditor = await Repository.LibraryVariableSets.CreateOrModify("Environment variables", "The environment details we require for all projects");
-            foreach (var e in allEnvironments)
+            foreach (var e in sampleEnvironments)
             {
                 (await envVarEditor.Variables).AddOrUpdateVariableValue("Environment.Alias", e.Name.Replace("MT ", "").ToLowerInvariant(), new ScopeSpecification { { ScopeField.Environment, e.Id } });
             }
@@ -251,7 +267,7 @@ namespace Octopus.Sampler.Commands
                             .AddOrUpdateScriptAction("Notify VIP Contact", new InlineScriptActionFromFileInAssembly("MultiTenantSample.NotifyContact.ps1"), ScriptTarget.Server)
                             .ForTenantTags(getTag("VIP"));
 
-                        projectEditor.Instance.TenantedDeploymentMode = TenantedDeploymentMode.Tenanted;
+                        projectEditor.Instance.TenantedDeploymentMode = TenantedDeploymentMode.TenantedOrUntenanted;
 
                         await projectEditor.Save();
 
@@ -276,7 +292,7 @@ namespace Octopus.Sampler.Commands
 
                         // Connect to projects/environments
                         tenantEditor.ClearProjects();
-                        var testEnvironments = allEnvironments.Where(e => e.Name == "MT Test").ToArray();
+                        var testEnvironments = sampleEnvironments.Where(e => e.Name == "MT Test").ToArray();
                         foreach (var project in projects)
                         {
                             tenantEditor.ConnectToProjectAndEnvironments(project, testEnvironments);
@@ -284,7 +300,7 @@ namespace Octopus.Sampler.Commands
                         await tenantEditor.Save();
 
                         // Ensure project mapping is saved before we attempt to fill out variables - otherwise they won't exist
-                        await FillOutTenantVariablesByConvention(tenantEditor, projects, allEnvironments, libraryVariableSets);
+                        await FillOutTenantVariablesByConvention(tenantEditor, projects, sampleEnvironments, libraryVariableSets);
 
                         await tenantEditor.Save();
                         return tenantEditor.Instance;
@@ -303,7 +319,7 @@ namespace Octopus.Sampler.Commands
                         TagCustomerByConvention(tenantEditor.Instance, allTags);
 
                         // Connect to projects/environments
-                        var customerEnvironments = GetEnvironmentsForCustomer(allEnvironments, tenantEditor.Instance);
+                        var customerEnvironments = GetEnvironmentsForCustomer(sampleEnvironments, tenantEditor.Instance);
                         foreach (var project in projects)
                         {
                             tenantEditor.ConnectToProjectAndEnvironments(project, customerEnvironments);
@@ -311,7 +327,7 @@ namespace Octopus.Sampler.Commands
                         await tenantEditor.Save();
 
                         // Ensure project mapping is saved before we attempt to fill out variables - otherwise they won't exist
-                        await FillOutTenantVariablesByConvention(tenantEditor, projects, allEnvironments, libraryVariableSets);
+                        await FillOutTenantVariablesByConvention(tenantEditor, projects, sampleEnvironments, libraryVariableSets);
                         await tenantEditor.Save();
                         return tenantEditor.Instance;
                     })
@@ -326,7 +342,7 @@ namespace Octopus.Sampler.Commands
                         .Select(i => Repository.Machines.CreateOrModify(
                             $"{customer.Name} Host {i}",
                             new CloudRegionEndpointResource(),
-                            GetEnvironmentsForCustomer(allEnvironments, customer),
+                            GetEnvironmentsForCustomer(sampleEnvironments, customer),
                             new[] {"web-server"},
                             new[] {customer},
                             new TagResource[0],
