@@ -106,7 +106,7 @@ Task("Merge")
             IO.Directory.EnumerateFiles(inputFolder, "*.dll").Select(f => (FilePath) f),
             new ILRepackSettings { 
                 Internalize = true, 
-                Libs = new List<FilePath>() { inputFolder }
+                Libs = new List<DirectoryPath>() { inputFolder }
             }
         );
     });
