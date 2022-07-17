@@ -33,4 +33,8 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="_build\" />
+  </ItemGroup>
+
 </Project>

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26430.14
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32630.192
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Sampler", "Sampler\Sampler.csproj", "{498336AE-A081-4CB2-84C1-D45A8E94A1D7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "_build", "..\build\_build.csproj", "{F99CC63D-BA02-4874-B3AF-EE1FDCDBDB11}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -11,6 +13,8 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F99CC63D-BA02-4874-B3AF-EE1FDCDBDB11}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F99CC63D-BA02-4874-B3AF-EE1FDCDBDB11}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{498336AE-A081-4CB2-84C1-D45A8E94A1D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{498336AE-A081-4CB2-84C1-D45A8E94A1D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{498336AE-A081-4CB2-84C1-D45A8E94A1D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -18,5 +22,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0598D00A-F0E9-414E-B613-96202ECEE0BE}
 	EndGlobalSection
 EndGlobal
