@@ -8,6 +8,7 @@ using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tooling;
 using Nuke.Common.Tools.DotNet;
+using Nuke.Common.Tools.GitVersion;
 using Nuke.Common.Tools.ILRepack;
 using Nuke.Common.Utilities.Collections;
 using Nuke.Common.Tools.OctoVersion;
@@ -22,7 +23,9 @@ class Build : NukeBuild
 {
     const string CiBranchNameEnvVariable = "OCTOVERSION_CurrentBranch";
 
-    [Parameter("Whether to auto-detect the branch name - this is okay for a local build, but should not be used under CI.")] readonly bool AutoDetectBranch = IsLocalBuild;
+    [Parameter(
+        "Whether to auto-detect the branch name - this is okay for a local build, but should not be used under CI.")]
+    readonly bool AutoDetectBranch = IsLocalBuild;
 
     [Parameter("Configuration to build - Default is 'Debug' (local) or 'Release' (server)")]
     readonly Configuration Configuration = IsLocalBuild ? Configuration.Debug : Configuration.Release;
@@ -37,14 +40,16 @@ class Build : NukeBuild
         Framework = "net6.0")]
     public OctoVersionInfo OctoVersionInfo;
 
-    [Parameter("Branch name for OctoVersion to use to calculate the version number. Can be set via the environment variable " + CiBranchNameEnvVariable + ".",
+    [Parameter(
+        "Branch name for OctoVersion to use to calculate the version number. Can be set via the environment variable " +
+        CiBranchNameEnvVariable + ".",
         Name = CiBranchNameEnvVariable)]
     string BranchName { get; set; }
 
     AbsolutePath SourceDirectory => RootDirectory / "source";
     AbsolutePath ArtifactsDirectory => RootDirectory / "artifacts";
     AbsolutePath PublishDirectory => RootDirectory / "publish";
-    AbsolutePath OctopusClientFolder => SourceDirectory / "Sampler";
+
     Target Clean => _ => _
         .Executes(() =>
         {
@@ -99,7 +104,8 @@ class Build : NukeBuild
                 .SetAssemblies(inputFolder / "Sampler.exe")
                 .AddAssemblies(files)
                 .SetTarget(ILRepackTarget.exe)
-                .SetOutput(outputFolder / "Sampler.exe"));
+                .SetOutput(outputFolder / "Sampler.exe")
+                .EnableInternalize());
         });
 
     Target Zip => _ => _
